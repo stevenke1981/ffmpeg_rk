@@ -29,6 +29,15 @@ jobs:
         git clone --depth=1 -b jellyfin-mpp https://github.com/nyanmisaka/mpp.git mpp
         git clone --depth=1 -b jellyfin-rga https://github.com/nyanmisaka/rk-mirrors.git rga
 
+    # Check for existing build directory
+    - name: Check for existing build directory
+      run: |
+        if [ -d build ]; then
+          echo "Build directory already exists. Skipping creation."
+        else
+          mkdir build
+        fi
+
     # Build MPP
     - name: Build MPP
       working-directory: mpp
@@ -51,7 +60,7 @@ jobs:
           --default-library=shared \
           -Dcpp_args=-fpermissive \
           -Dlibdrm=false \
-          -Dlibrga_demo=false
+          -Dlibrga_demo=disabled
         meson configure build
         ninja -C build install
 
