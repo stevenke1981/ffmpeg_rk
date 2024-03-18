@@ -38,19 +38,17 @@ jobs:
           mkdir build
         fi
 
-- name: Build MPP
-  working-directory: mpp
-  run: |
-    git fetch --unshallow  # Fetch all refs from the remote
-    git checkout jellyfin-mpp  # Switch to the desired branch
-    rm -rf build  # Remove existing build directory (optional, be cautious about data loss)
-    mkdir -p build  # Force creation of build directory with parents if they don't exist
-    pushd build
-    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TEST=OFF ..
-    make -j $(nproc)
-    make install
-    popd
-
+    # Build MPP
+    - name: Build MPP
+      working-directory: mpp
+      run: |
+        rm -rf build  # Remove existing build directory (optional, be cautious about data loss)
+        mkdir -p build  # Force creation of build directory with parents if they don't exist
+        pushd build
+        cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TEST=OFF ..
+        make -j $(nproc)
+        make install
+        popd
 
     # Build RGA
     - name: Build RGA
