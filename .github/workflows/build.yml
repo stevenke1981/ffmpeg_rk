@@ -51,9 +51,7 @@ jobs:
               -Dcpp_args=-fpermissive \
               -Dlibdrm=false \
               -Dlibrga_demo=false
-          meson configure rkrga_build
-          ninja -C rkrga_build install
-
+          
       - name: Build FFmpeg
         run: |
           mkdir -p ~/dev && cd ~/dev
