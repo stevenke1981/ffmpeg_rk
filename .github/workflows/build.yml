@@ -1,0 +1,92 @@
+name: Build FFmpeg (ARM/ARM64)
+
+# Trigger the workflow on pushes to the master branch
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+# Jobs to be executed in parallel
+jobs:
+  build-ffmpeg:
+    # Use ubuntu-latest runner
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout the repository code
+    - uses: actions/checkout@v3
+
+    # Install dependencies
+    - name: Install dependencies
+      run: |
+        sudo apt-get update && sudo apt-get install -y \
+          autoconf automake build-essential cmake git libtool libva-dev pkg-config \
+          python3 python3-dev x264 libx264-dev
+
+    # Clone MPP and RGA (shallow clone)
+    - name: Clone MPP and RGA
+      run: |
+        git clone --depth=1 -b jellyfin-mpp https://github.com/nyanmisaka/mpp.git mpp
+        git clone --depth=1 -b jellyfin-rga https://github.com/nyanmisaka/rk-mirrors.git rga
+
+    # Check for existing build directory
+    - name: Check for existing build directory
+      run: |
+        if [ -d build ]; then
+          echo "Build directory already exists. Skipping creation."
+        else
+          mkdir build
+        fi
+
+- name: Build MPP
+  working-directory: mpp
+  run: |
+    git fetch --unshallow  # Fetch all refs from the remote
+    git checkout jellyfin-mpp  # Switch to the desired branch
+   # rm -rf build  # Remove existing build directory (optional, be cautious about data loss)
+    mkdir -p build  # Force creation of build directory with parents if they don't exist
+    pushd build
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TEST=OFF ..
+    make -j $(nproc)
+    make install
+    popd
+
+
+    # Build RGA
+    - name: Build RGA
+      working-directory: rga
+      run: |
+        meson setup rga build \
+          --prefix=/usr \
+          --libdir=lib \
+          --buildtype=release \
+          --default-library=shared \
+          -Dcpp_args=-fpermissive \
+          -Dlibdrm=false \
+          -Dlibrga_demo=disabled
+        meson configure build
+        ninja -C build install
+
+    # Build FFmpeg
+    - name: Build FFmpeg
+      working-directory: ffmpeg  # Assuming ffmpeg is already cloned in the repository
+      env:
+        # Customize these configure flags as needed
+        FFMPEG_CONFIGURE_FLAGS: "--prefix=/usr --enable-gpl --enable-version3 --enable-libdrm --enable-rkmpp --enable-rkrga"
+      run: |
+        ./configure $FFMPEG_CONFIGURE_FLAGS
+        make -j $(nproc)
+
+    # Test FFmpeg decoders/encoders/filters (optional)
+    - name: Test FFmpeg
+      run: |
+        ./ffmpeg -decoders | grep rkmpp
+        ./ffmpeg -encoders | grep rkmpp
+        ./ffmpeg -filters | grep rkrga
+
+    # Optional: Upload artifacts (built FFmpeg binary)
+    - name: Upload FFmpeg artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ffmpeg-$(arch)
+        path: ffmpeg  # Update path if the binary is in a different location
